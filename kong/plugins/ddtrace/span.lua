@@ -97,7 +97,7 @@ local function new(
         language = "lua",
     }
 
-    if root == nil and trace_id.high ~= nil then
+    if root == nil and trace_id.high ~= nil and trace_id.high ~= 0 then
         meta["_dd.p.tid"] = bit.tohex(trace_id.high)
     end
 

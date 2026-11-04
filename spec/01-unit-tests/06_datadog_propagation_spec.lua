@@ -394,5 +394,42 @@ describe("trace propagation", function()
         assert.same(expected_headers["x-datadog-origin"], out_headers["x-datadog-origin"])
         assert.is_true(string_contains(out_headers["x-datadog-tags"], "_dd.p.dm=-3"))
         assert.is_true(string_contains(out_headers["x-datadog-tags"], "_dd.p.tid=cbae7cb600000000"))
+
+        it("does not add _dd.p.tid to a 64-bit trace", function()
+            local headers = {
+                ["x-datadog-trace-id"] = "12345678901234567890",
+                ["x-datadog-parent-id"] = "9876543210987654321",
+                ["x-datadog-tags"] = "_dd.p.dm=-3",
+            }
+            local injected_headers = {}
+            local request = {
+                get_header = make_getter(headers),
+                set_header = function(key, value)
+                    injected_headers[key] = value
+                end,
+            }
+
+            local extracted, _ = extract_datadog(request.get_header, 512)
+            local start_us = 1711027189 * 100000000LL
+            local span = new_span(
+                "kong-test",
+                "round-trip",
+                "resource",
+                extracted.trace_id,
+                nil,
+                extracted.parent_id,
+                start_us,
+                nil,
+                nil,
+                true,
+                nil
+            )
+            span:set_tags(extracted.tags)
+
+            inject_datadog(span, request, 512)
+
+            assert.is_nil(span.meta["_dd.p.tid"])
+            assert.same("_dd.p.dm=-3", injected_headers["x-datadog-tags"])
+        end)
     end)
 end)
